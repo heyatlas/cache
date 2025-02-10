@@ -6,8 +6,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "test": "jest",
-    "test:watch": "jest --watch",
+    "test": "dotenv -e .env.test -- jest",
+    "test:watch": "dotenv -e .env.test -- jest --watch",
     "prepare": "npm run build",
     "prepublishOnly": "npm test"
   },
@@ -16,12 +16,18 @@
   "license": "MIT",
   "devDependencies": {
     "@types/jest": "^29.5.12",
+    "@types/lodash": "^4.17.15",
     "@types/node": "^20.11.24",
+    "dotenv-cli": "^7.4.4",
     "jest": "^29.7.0",
     "ts-jest": "^29.1.2",
     "typescript": "^5.3.3"
   },
   "files": [
     "dist"
-  ]
+  ],
+  "dependencies": {
+    "ioredis": "^5.5.0",
+    "lodash": "^4.17.21"
+  }
 }
