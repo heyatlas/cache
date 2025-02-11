@@ -1,8 +1,19 @@
+import { Logger } from "@heyatlas/logger";
 import Redis, { ChainableCommander, RedisOptions } from "ioredis";
 import { isEmpty, isNil } from "lodash";
 
-// TODO: later
-const logger = console;
+const logger = new Logger({
+  name: "cache",
+  test: {
+    streams: [{ type: "stdout", level: "fatal" }],
+  },
+  staging: {
+    streams: [{ type: "stdout", level: "info" }],
+  },
+  production: {
+    streams: [{ type: "stdout", level: "info" }],
+  },
+});
 
 interface CacheConfig {
   username?: string;
