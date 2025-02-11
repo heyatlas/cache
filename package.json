@@ -29,7 +29,8 @@
   },
   "homepage": "https://github.com/heyatlas/cache#readme",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://npm.pkg.github.com"
   },
   "files": [
     "dist",
