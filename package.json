@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "test": "dotenv -e .env.test -- jest --detectOpenHandles --testTimeout=10000",
+    "test": "dotenv -e .env.test -- jest --detectOpenHandles",
     "test:watch": "dotenv -e .env.test -- jest --watch",
     "prepare": "npm run build",
     "prepublishOnly": "npm test"
