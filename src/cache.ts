@@ -18,12 +18,22 @@ const createDefaultLogger = () =>
   });
 
 interface CacheConfig {
-  username?: string;
-  password?: string;
-  port?: string | number;
+  /** Redis server hostname or IP address */
   host: string;
+
+  /** Redis server port (default: 6379) */
+  port?: string | number;
+
+  /** Redis username for authentication (optional) */
+  username?: string;
+
+  /** Redis password for authentication (optional) */
+  password?: string;
+
+  /** Enable TLS/SSL connection to Redis (optional) */
   tlsEnabled?: boolean;
-  env?: string;
+
+  /** Custom logger instance. If not provided, a default logger will be created */
   logger?: Logger;
 }
 
@@ -42,11 +52,11 @@ export class Cache {
   }
 
   private getHost(): string {
-    return this.config.env === "test" ? "localhost" : this.config.host;
+    return process.env.NODE_ENV === "test" ? "localhost" : this.config.host;
   }
 
   private getKey(key: string): string {
-    return this.config.env === "test" ? `${this.config.env}:${key}` : key;
+    return process.env.NODE_ENV === "test" ? `test:${key}` : key;
   }
 
   private getRedisConfig(): RedisOptions {
