@@ -1,5 +1,5 @@
+import { Cache, CacheConfig, cacheInstance } from "./cache";
 import { flushCache } from "./utils";
-import { Cache, cacheInstance, CacheConfig } from "./cache";
 
 const testConfig: CacheConfig = {
   host: process.env.REDIS_HOST || "localhost",
@@ -8,38 +8,61 @@ const testConfig: CacheConfig = {
   password: process.env.REDIS_PASSWORD || "admin",
 };
 
-// Global setup
-beforeAll(async () => {
+// Remove global beforeAll since we're handling connections per test
+beforeAll(() => {
   Cache.instance = null;
-  const cache = cacheInstance(testConfig);
-  await cache.connect();
 });
 
-afterAll(async () => {
-  const cache = cacheInstance(testConfig);
-  await cache.shutdown();
+let activeCache: Cache | null = null;
+
+// Track the active cache instance
+function trackCache(cache: Cache) {
+  activeCache = cache;
+  return cache;
+}
+
+// Update the cleanup function
+async function cleanupRedisConnections() {
+  if (activeCache?.isConnected()) {
+    await activeCache.shutdown();
+  }
+  if (Cache.instance?.isConnected()) {
+    await Cache.instance.shutdown();
+  }
+  activeCache = null;
   Cache.instance = null;
-});
+}
+
+// Add forceCleanup parameter for final cleanup
+afterAll(async () => {
+  await cleanupRedisConnections();
+  // Force disconnect any remaining Redis connections
+  await new Promise((resolve) => {
+    if (process.env.NODE_ENV === "test") {
+      resolve(undefined);
+    }
+  });
+}, 1000); // Add timeout to ensure cleanup completes
 
 describe("Cache Integration Tests", () => {
+  afterEach(async () => {
+    await cleanupRedisConnections();
+  });
+
   describe("Singleton and Connection", () => {
     let cache: Cache;
     let originalInstance: Cache | null;
 
     beforeEach(async () => {
-      // Store original instance to restore it later
+      await cleanupRedisConnections();
       originalInstance = Cache.instance;
-      cache = cacheInstance(testConfig);
+      cache = trackCache(cacheInstance(testConfig));
       await cache.connect();
       await flushCache(cache);
     });
 
     afterEach(async () => {
-      // Restore the original instance after tests
-      if (Cache.instance && Cache.instance !== originalInstance) {
-        await Cache.instance.shutdown();
-      }
-      Cache.instance = originalInstance;
+      await cleanupRedisConnections();
     });
 
     it("should return the same instance", () => {
@@ -206,9 +229,14 @@ describe("Cache Integration Tests", () => {
     let cache: Cache;
 
     beforeEach(async () => {
-      cache = cacheInstance(testConfig);
+      await cleanupRedisConnections();
+      cache = trackCache(cacheInstance(testConfig));
       await cache.connect();
-      await flushCache(cache);
+    });
+
+    afterEach(async () => {
+      await cleanupRedisConnections();
+      jest.restoreAllMocks();
     });
 
     it("should execute pipeline operations successfully", async () => {
@@ -245,7 +273,7 @@ describe("Cache Integration Tests", () => {
     let cache: Cache;
 
     beforeEach(async () => {
-      cache = cacheInstance(testConfig);
+      cache = trackCache(cacheInstance(testConfig));
       await cache.connect();
       await flushCache(cache);
     });
@@ -299,6 +327,53 @@ describe("Cache Integration Tests", () => {
 
     it("should handle an empty array of items", async () => {
       await expect(cache.setBulk([])).resolves.not.toThrow();
+    });
+  });
+
+  describe("Edge Cases", () => {
+    beforeEach(async () => {
+      await cleanupRedisConnections();
+      jest.clearAllMocks();
+    });
+
+    afterEach(async () => {
+      await cleanupRedisConnections();
+      jest.restoreAllMocks();
+    });
+
+    it("should handle non-JSON values in get", async () => {
+      const cache = trackCache(cacheInstance(testConfig));
+      await cache.connect();
+
+      // Mock Redis get method
+      jest.spyOn(cache["redis"]!, "get").mockResolvedValue("not-json");
+
+      const result = await cache.get("invalid-json");
+      expect(result).toBe("not-json");
+      jest.restoreAllMocks();
+    });
+
+    it("should handle retry strategy", async () => {
+      const cache = cacheInstance(testConfig);
+      await cache.connect();
+      const config = cache["getRedisConfig"]();
+      const retryDelay = config.retryStrategy!(3);
+      expect(retryDelay).toBeLessThanOrEqual(3000);
+      expect(retryDelay).toBeGreaterThan(0);
+
+      const maxRetryDelay = config.retryStrategy!(6);
+      expect(maxRetryDelay).toBeNull();
+    });
+
+    it("should handle TLS configuration", () => {
+      const tlsConfig: CacheConfig = {
+        ...testConfig,
+        tlsEnabled: true,
+      };
+
+      const cache = cacheInstance(tlsConfig);
+      const config = cache["getRedisConfig"]();
+      expect(config.tls).toEqual({ rejectUnauthorized: false });
     });
   });
 });
