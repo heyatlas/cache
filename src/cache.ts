@@ -21,6 +21,9 @@ interface CacheConfig {
 
   /** Custom logger instance. If not provided, a default logger will be created */
   logger?: Logger;
+
+  /** The timeout for the connection to the Redis server (default: 10 seconds) */
+  connectTimeout?: number;
 }
 
 export class Cache {
@@ -46,10 +49,16 @@ export class Cache {
   }
 
   private getRedisConfig(): RedisOptions {
-    const { username, password, port, tlsEnabled } = this.config;
+    const {
+      username,
+      password,
+      port,
+      tlsEnabled,
+      connectTimeout = 10000,
+    } = this.config;
     const logger = this.logger;
 
-    return {
+    const config: RedisOptions = {
       ...(!isEmpty(username) ? { username } : {}),
       ...(!isEmpty(password) ? { password } : {}),
       port: Number.parseInt(String(port ?? "6379"), 10),
@@ -63,11 +72,16 @@ export class Cache {
         return attempt >= 5 ? null : nextSleepTime;
       },
       maxRetriesPerRequest: null,
-      ...(!!tlsEnabled ? { tls: { rejectUnauthorized: false } } : {}),
-      connectTimeout: 10000,
+      connectTimeout,
       disconnectTimeout: 2000,
       enableOfflineQueue: false,
     };
+
+    if (tlsEnabled) {
+      config.tls = { rejectUnauthorized: false };
+    }
+
+    return config;
   }
 
   public static getInstance(config?: CacheConfig): Cache {
