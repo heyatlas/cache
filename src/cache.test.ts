@@ -25,11 +25,22 @@ afterAll(async () => {
 describe("Cache Integration Tests", () => {
   describe("Singleton and Connection", () => {
     let cache: Cache;
+    let originalInstance: Cache | null;
 
     beforeEach(async () => {
+      // Store original instance to restore it later
+      originalInstance = Cache.instance;
       cache = cacheInstance(testConfig);
       await cache.connect();
       await flushCache(cache);
+    });
+
+    afterEach(async () => {
+      // Restore the original instance after tests
+      if (Cache.instance && Cache.instance !== originalInstance) {
+        await Cache.instance.shutdown();
+      }
+      Cache.instance = originalInstance;
     });
 
     it("should return the same instance", () => {
@@ -38,11 +49,12 @@ describe("Cache Integration Tests", () => {
       expect(instance1).toBe(instance2);
     });
 
-    it("should throw error when getting instance without config before initialization", () => {
+    it("should throw error when getting instance without config before initialization", async () => {
       Cache.instance = null; // Reset singleton for this test
       expect(() => cacheInstance()).toThrow(
         "Cache is not initialized. Please provide configuration for the first call."
       );
+      // Don't need to cleanup as afterEach will restore original instance
     });
 
     it("should reuse existing connection", async () => {
@@ -145,17 +157,33 @@ describe("Cache Integration Tests", () => {
   });
 
   describe("Error Handling", () => {
+    let originalInstance: Cache | null;
+
+    beforeEach(async () => {
+      originalInstance = Cache.instance;
+    });
+
+    afterEach(async () => {
+      // Clean up any test instances and restore original
+      if (Cache.instance && Cache.instance !== originalInstance) {
+        await Cache.instance.shutdown();
+      }
+      Cache.instance = originalInstance;
+    });
+
     it("should throw error when trying to use cache before connecting", async () => {
       Cache.instance = null;
       const newCache = cacheInstance({ ...testConfig, host: "other-host" });
       await expect(newCache.get("someKey")).rejects.toThrow(
         "Redis cache is not connected"
       );
-      Cache.instance = null;
+      // Don't need explicit cleanup as afterEach will handle it
     });
 
     it("should handle reconnection after shutdown", async () => {
       const cache = cacheInstance(testConfig);
+      await cache.connect();
+
       await cache.shutdown();
       expect(cache.isConnected()).toBe(false);
 
@@ -169,6 +197,9 @@ describe("Cache Integration Tests", () => {
       await cache.set("reconnectKey", "reconnectValue");
       const result = await cache.get("reconnectKey");
       expect(result).toBe("reconnectValue");
+
+      // Clean up this test's connection
+      await cache.shutdown();
     });
   });
 
