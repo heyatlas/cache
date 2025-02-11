@@ -2,18 +2,20 @@ import { Logger } from "@heyatlas/logger";
 import Redis, { ChainableCommander, RedisOptions } from "ioredis";
 import { isEmpty, isNil } from "lodash";
 
-const logger = new Logger({
-  name: "cache",
-  test: {
-    streams: [{ type: "stdout", level: "fatal" }],
-  },
-  staging: {
-    streams: [{ type: "stdout", level: "info" }],
-  },
-  production: {
-    streams: [{ type: "stdout", level: "info" }],
-  },
-});
+// Default logger configuration
+const createDefaultLogger = () =>
+  new Logger({
+    name: "cache",
+    test: {
+      streams: [{ type: "stdout", level: "fatal" }],
+    },
+    staging: {
+      streams: [{ type: "stdout", level: "info" }],
+    },
+    production: {
+      streams: [{ type: "stdout", level: "info" }],
+    },
+  });
 
 interface CacheConfig {
   username?: string;
@@ -22,6 +24,7 @@ interface CacheConfig {
   host: string;
   tlsEnabled?: boolean;
   env?: string;
+  logger?: Logger;
 }
 
 export class Cache {
@@ -31,9 +34,11 @@ export class Cache {
   private isReady = false;
   private connectPromise: Promise<void> | null = null;
   private config: CacheConfig;
+  private logger: Logger;
 
   private constructor(config: CacheConfig) {
     this.config = config;
+    this.logger = config.logger || createDefaultLogger();
   }
 
   private getHost(): string {
@@ -46,6 +51,7 @@ export class Cache {
 
   private getRedisConfig(): RedisOptions {
     const { username, password, port, tlsEnabled } = this.config;
+    const logger = this.logger;
 
     return {
       ...(!isEmpty(username) ? { username } : {}),
@@ -83,20 +89,20 @@ export class Cache {
   }
 
   private setupListeners(redis: Redis): void {
-    redis.on("connect", () => logger.info("cache.connected"));
+    redis.on("connect", () => this.logger.info("cache.connected"));
     redis.on("ready", () => {
-      logger.info("cache.ready");
+      this.logger.info("cache.ready");
     });
     redis.on("error", (error: Error) => {
-      logger.error("cache.error", { error });
+      this.logger.error("cache.error", { error });
     });
     redis.on("close", () => {
-      logger.info("cache.closed");
+      this.logger.info("cache.closed");
       this.isReady = false;
     });
-    redis.on("reconnecting", () => logger.info("cache.reconnecting"));
+    redis.on("reconnecting", () => this.logger.info("cache.reconnecting"));
     redis.on("end", () => {
-      logger.info("cache.ended");
+      this.logger.info("cache.ended");
     });
   }
 
@@ -170,7 +176,7 @@ export class Cache {
     const v = JSON.stringify(value);
     const key = this.getKey(rawKey);
     await (ttl ? redis.setex(key, ttl, v) : redis.set(key, v));
-    logger.debug("cache.set.successfully", { key: rawKey });
+    this.logger.debug("cache.set.successfully", { key: rawKey });
   }
 
   public async get<T = unknown>(rawKey: string): Promise<T | undefined> {
@@ -179,15 +185,15 @@ export class Cache {
     const value = await redis.get(key);
 
     if (isNil(value)) {
-      logger.info("cache.get.miss", { key: rawKey });
+      this.logger.info("cache.get.miss", { key: rawKey });
       return undefined;
     }
 
-    logger.info("cache.get.hit", { key: rawKey });
+    this.logger.info("cache.get.hit", { key: rawKey });
     try {
       return JSON.parse(value) as T;
     } catch (error) {
-      logger.warn("cache.get.parse_failed", { key: rawKey, error });
+      this.logger.warn("cache.get.parse_failed", { key: rawKey, error });
       return value as T;
     }
   }
@@ -218,12 +224,12 @@ export class Cache {
 
     try {
       const results = await pipeline.exec();
-      logger.debug("cache.pipeline.executed_successfully", {
+      this.logger.debug("cache.pipeline.executed_successfully", {
         operationsCount: pipeline.length,
       });
       return results as [Error | null, T][];
     } catch (error) {
-      logger.error("cache.pipeline.execution_failed", { error });
+      this.logger.error("cache.pipeline.execution_failed", { error });
       throw error;
     }
   }
@@ -246,7 +252,7 @@ export class Cache {
     // Check for errors in the results
     const errors = results.filter(([err]) => err !== null);
     if (errors.length > 0) {
-      logger.error("cache.set_bulk.partial_failure", {
+      this.logger.error("cache.set_bulk.partial_failure", {
         errorCount: errors.length,
         totalCount: items.length,
       });
@@ -255,7 +261,9 @@ export class Cache {
       );
     }
 
-    logger.debug("cache.set_bulk.successfully", { itemCount: items.length });
+    this.logger.debug("cache.set_bulk.successfully", {
+      itemCount: items.length,
+    });
   }
 }
 
