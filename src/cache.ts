@@ -1,21 +1,7 @@
 import { Logger } from "@heyatlas/logger";
 import Redis, { ChainableCommander, RedisOptions } from "ioredis";
 import { isEmpty, isNil } from "lodash";
-
-// Default logger configuration
-const createDefaultLogger = () =>
-  new Logger({
-    name: "cache",
-    test: {
-      streams: [{ type: "stdout", level: "fatal" }],
-    },
-    staging: {
-      streams: [{ type: "stdout", level: "info" }],
-    },
-    production: {
-      streams: [{ type: "stdout", level: "info" }],
-    },
-  });
+import { createDefaultLogger } from "./utils";
 
 interface CacheConfig {
   /** Redis server hostname or IP address */
