@@ -1,7 +1,7 @@
 {
-  "name": "cache",
+  "name": "@heyatlas/cache",
   "version": "1.0.0",
-  "description": "Atlas cache",
+  "description": "Redis cache implementation with TypeScript support",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -9,11 +9,34 @@
     "test": "dotenv -e .env.test -- jest --detectOpenHandles",
     "test:watch": "dotenv -e .env.test -- jest --watch",
     "prepare": "npm run build",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "npm test",
+    "clean": "rm -rf dist"
   },
-  "keywords": [],
+  "keywords": [
+    "redis",
+    "cache",
+    "typescript",
+    "ioredis"
+  ],
   "author": "Federico Cano <fedecano@heyatlas.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heyatlas/cache.git"
+  },
+  "bugs": {
+    "url": "https://github.com/heyatlas/cache/issues"
+  },
+  "homepage": "https://github.com/heyatlas/cache#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "devDependencies": {
     "@types/jest": "^29.5.12",
     "@types/lodash": "^4.17.15",
@@ -23,12 +46,12 @@
     "ts-jest": "^29.1.2",
     "typescript": "^5.3.3"
   },
-  "files": [
-    "dist"
-  ],
   "dependencies": {
     "@heyatlas/logger": "^1.3.1",
     "ioredis": "^5.5.0",
     "lodash": "^4.17.21"
+  },
+  "peerDependencies": {
+    "@heyatlas/logger": "^1.3.1"
   }
 }
