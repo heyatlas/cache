@@ -97,6 +97,75 @@ const results = await cache.executePipeline<string | number>((pipeline) => {
 });
 ```
 
+## Cache Store Usage
+
+The cache store provides a higher-level abstraction with namespace isolation and simplified interface.
+
+### Basic Usage
+
+```typescript
+import { createCacheStore } from "@heyatlas/cache";
+
+// Create a store with a namespace
+const userStore = createCacheStore({
+  namespace: "users",
+  defaultTTL: 3600, // optional, in seconds
+});
+
+// Check if item exists in cache
+const isNew = await userStore.isNewItem("user-123");
+
+// Save item to cache
+await userStore.saveItem("user-123", {
+  name: "John Doe",
+  email: "john@example.com",
+});
+
+// Save with custom TTL (overrides default)
+await userStore.saveItem("user-456", userData, 1800);
+```
+
+### Multiple Stores
+
+Each store operates independently with its own namespace:
+
+```typescript
+// Create separate stores for different features
+const userStore = createCacheStore({ namespace: "users" });
+const productStore = createCacheStore({ namespace: "products" });
+const sessionStore = createCacheStore({
+  namespace: "sessions",
+  defaultTTL: 1800, // 30 minutes
+});
+
+// Each store manages its own keys
+await userStore.saveItem("123", userData);
+await productStore.saveItem("123", productData);
+// These don't conflict despite same key
+```
+
+### Store Configuration
+
+```typescript
+interface CacheStoreOptions {
+  // Required unique namespace for this store
+  namespace: string;
+
+  // Optional default TTL in seconds
+  defaultTTL?: number;
+
+  // Optional custom logger
+  logger?: Logger;
+}
+```
+
+The store automatically handles:
+
+- Namespace prefixing for keys
+- JSON serialization/deserialization
+- TTL management
+- Connection lifecycle
+
 ## Configuration
 
 | Option     | Type             | Required | Description                |
