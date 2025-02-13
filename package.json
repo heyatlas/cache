@@ -30,7 +30,7 @@
   "homepage": "https://github.com/heyatlas/cache#readme",
   "publishConfig": {
     "access": "public",
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org/"
   },
   "files": [
     "dist",
